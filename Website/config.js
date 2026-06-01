@@ -1,7 +1,7 @@
 // Configuration for the Student Projects Frontend
 const CONFIG = {
   // Connection mode: 'demo', 'supabase', or 'api'
-  MODE: 'supabase', // Optimized for STRATO hosting with Supabase backend
+  MODE: 'local-json', // Self-contained: read from Website/data/projects.json and export changes
   
   // API Base URL - for 'api' mode only
   API_BASE_URL: '', // Empty string means relative URLs (same domain)

@@ -1,0 +1,31 @@
+[
+  {
+    "id": 1,
+    "title": "Rolfs test project",
+    "student_name": "",
+    "description": "small description",
+    "year": 2022,
+    "curator": "Rolf",
+    "rating": 4,
+    "tags": "physics, rolfstag, rolfs tag with space, example",
+    "category": "",
+    "categories": [
+      "Technology"
+    ],
+    "project_link": "",
+    "github_repo": "",
+    "documentation": "",
+    "feedback": "",
+    "video_url": "",
+    "image_urls": [],
+    "video_urls": [],
+    "comments": [],
+    "created_at": "2026-06-01T10:59:20.446Z",
+    "updated_at": "2026-06-01T10:59:20.446Z",
+    "image_count": 0,
+    "video_count": 0,
+    "thumbnail_image": null,
+    "thumbnail_video": null,
+    "comment_count": 0
+  }
+]

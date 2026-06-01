@@ -91,10 +91,10 @@ const mockAPI = {
 // Supabase API handler
 async function handleSupabaseCall(endpoint, options = {}) {
   if (!window.supabaseAPI) {
-    throw new Error('Supabase client not loaded. Please include supabase-client.js');
+    throw new Error('Local JSON client not loaded. Please include local-json-client.js');
   }
   
-  console.log('Supabase mode: Calling', endpoint);
+  console.log('Local/API compatibility mode: Calling', endpoint);
   
   // Parse endpoint and method
   const method = options.method || 'GET';
@@ -102,25 +102,35 @@ async function handleSupabaseCall(endpoint, options = {}) {
   const params = Object.fromEntries(url.searchParams);
   
   try {
-    if (endpoint.includes('/api/projects') && method === 'GET') {
-      return await window.supabaseAPI.fetchProjects(params);
-    } else if (endpoint.includes('/api/projects') && method === 'POST') {
-      const data = options.body ? JSON.parse(options.body) : {};
-      return await window.supabaseAPI.createProject(data);
-    } else if (endpoint.match(/\/api\/projects\/\d+$/) && method === 'GET') {
+    if (endpoint.match(/\/api\/projects\/\d+$/) && method === 'GET') {
       const id = endpoint.split('/').pop();
       return await window.supabaseAPI.getProject(id);
+    } else if (endpoint.match(/\/api\/projects\/\d+$/) && method === 'PUT') {
+      const id = endpoint.split('/').pop();
+      const data = options.body ? JSON.parse(options.body) : {};
+      return await window.supabaseAPI.updateProject(id, data);
     } else if (endpoint.match(/\/api\/projects\/\d+$/) && method === 'DELETE') {
       const id = endpoint.split('/').pop();
       await window.supabaseAPI.deleteProject(id);
       return {};
+    } else if (endpoint.match(/\/api\/projects\/\d+\/comments$/) && method === 'GET') {
+      const id = endpoint.match(/\/api\/projects\/(\d+)\/comments$/)[1];
+      return await window.supabaseAPI.getComments(id);
+    } else if (endpoint.match(/\/api\/projects\/\d+\/comments$/) && method === 'POST') {
+      const id = endpoint.match(/\/api\/projects\/(\d+)\/comments$/)[1];
+      const data = options.body ? JSON.parse(options.body) : {};
+      return await window.supabaseAPI.addComment(id, data);
+    } else if (endpoint === '/api/projects' && method === 'GET') {
+      return await window.supabaseAPI.fetchProjects(params);
+    } else if (endpoint === '/api/projects' && method === 'POST') {
+      const data = options.body ? JSON.parse(options.body) : {};
+      return await window.supabaseAPI.createProject(data);
     } else if (endpoint.includes('/upload/image') && method === 'POST') {
-      // Handle file uploads
       const projectId = endpoint.match(/\/api\/projects\/(\d+)\//)?.[1];
       const formData = options.body;
       const file = formData.get('file');
       if (file && projectId) {
-        return await window.supabaseAPI.uploadFile(file, projectId, 'image');
+        return await window.supabaseAPI.uploadAndAddImage(file, projectId);
       }
       throw new Error('Invalid upload request');
     } else if (endpoint.includes('/upload/video') && method === 'POST') {
@@ -128,7 +138,7 @@ async function handleSupabaseCall(endpoint, options = {}) {
       const formData = options.body;
       const file = formData.get('file');
       if (file && projectId) {
-        return await window.supabaseAPI.uploadFile(file, projectId, 'video');
+        return await window.supabaseAPI.uploadAndAddVideo(file, projectId);
       }
       throw new Error('Invalid upload request');
     } else if (endpoint.match(/\/api\/media\/\d+$/) && method === 'DELETE') {
@@ -150,7 +160,7 @@ async function handleSupabaseCall(endpoint, options = {}) {
 async function apiCall(endpoint, options = {}) {
   const mode = config.MODE || (config.DEMO_MODE ? 'demo' : 'api');
   
-  if (mode === 'supabase') {
+  if (mode === 'supabase' || mode === 'local-json') {
     return await handleSupabaseCall(endpoint, options);
   } else if (mode === 'demo') {
     console.log('Demo mode: Using mock data for', endpoint);
@@ -190,7 +200,7 @@ async function fetchProjects() {
     
     // Get all projects first
     let allProjects;
-    if (config.MODE === 'supabase') {
+    if ((config.MODE === 'supabase' || config.MODE === 'local-json')) {
       allProjects = await window.supabaseAPI.fetchProjects();
     } else {
       allProjects = await apiCall('/api/projects');
@@ -826,7 +836,7 @@ async function createProject(event) {
         status.textContent = 'Uploading cover image...';
         
         // For Supabase mode, upload image directly and add to array
-        if (config.MODE === 'supabase') {
+        if ((config.MODE === 'supabase' || config.MODE === 'local-json')) {
           const imageUrl = await window.supabaseAPI.uploadAndAddImage(imageFile, newProject.id);
           console.log('Cover image uploaded and added to project:', imageUrl);
         } else {
@@ -852,7 +862,7 @@ async function createProject(event) {
         status.textContent = 'Uploading video...';
         
         // For Supabase mode, upload video directly and add to array
-        if (config.MODE === 'supabase') {
+        if ((config.MODE === 'supabase' || config.MODE === 'local-json')) {
           const videoUrl = await window.supabaseAPI.uploadAndAddVideo(videoFile, newProject.id);
           console.log('Video uploaded and added to project:', videoUrl);
         } else {
@@ -1801,7 +1811,7 @@ async function deleteCurrentImage() {
   if (!confirm('Are you sure you want to delete the current image?')) return;
   
   try {
-    if (config.MODE === 'supabase') {
+    if ((config.MODE === 'supabase' || config.MODE === 'local-json')) {
       await window.supabaseAPI.deleteProjectImage(currentProject.id);
     } else {
       await apiCall(`/api/projects/${currentProject.id}/image`, { method: 'DELETE' });
@@ -1829,7 +1839,7 @@ async function deleteCurrentVideo() {
   if (!confirm('Are you sure you want to delete the current video?')) return;
   
   try {
-    if (config.MODE === 'supabase') {
+    if ((config.MODE === 'supabase' || config.MODE === 'local-json')) {
       await window.supabaseAPI.deleteProjectVideo(currentProject.id);
     } else {
       await apiCall(`/api/projects/${currentProject.id}/video`, { method: 'DELETE' });
@@ -1931,7 +1941,7 @@ async function saveProjectChanges() {
     console.log('Updating project with data:', updatedProject);
     
     // Update project via API
-    if (config.MODE === 'supabase') {
+    if ((config.MODE === 'supabase' || config.MODE === 'local-json')) {
       await window.supabaseAPI.updateProject(currentProject.id, updatedProject);
     } else {
       await apiCall(`/api/projects/${currentProject.id}`, {
@@ -1953,7 +1963,7 @@ async function saveProjectChanges() {
         const fileCount = newImageFiles.length;
         status.textContent = `Uploading ${fileCount} image${fileCount > 1 ? 's' : ''}...`;
         
-        if (config.MODE === 'supabase') {
+        if ((config.MODE === 'supabase' || config.MODE === 'local-json')) {
           // Upload all images to the array
           if (!currentProject.image_urls) {
             currentProject.image_urls = [];
@@ -1989,7 +1999,7 @@ async function saveProjectChanges() {
       try {
         status.textContent = 'Uploading new video...';
         
-        if (config.MODE === 'supabase') {
+        if ((config.MODE === 'supabase' || config.MODE === 'local-json')) {
           // Add new video to the array (don't delete old ones)
           const videoUrl = await window.supabaseAPI.uploadAndAddVideo(newVideoFile, currentProject.id);
           
